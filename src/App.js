@@ -14,7 +14,6 @@ export default function App() {
   const [energy, setEnergy] = useState(() => Number(localStorage.getItem('j_nrg')) || 100);
   const [batteryLvl, setBatteryLvl] = useState(() => Number(localStorage.getItem('j_bat')) || 1);
   const [multLvl, setMultLvl] = useState(() => Number(localStorage.getItem('j_mul')) || 1);
-  const [shakeCount, setShakeCount] = useState(() => Number(localStorage.getItem('j_shakes')) || 0);
   const [tab, setTab] = useState('MINE');
   const [topTab, setTopTab] = useState('RANK');
   const [isShaking, setIsShaking] = useState(false);
@@ -56,8 +55,7 @@ export default function App() {
     localStorage.setItem('j_nrg', energy);
     localStorage.setItem('j_bat', batteryLvl);
     localStorage.setItem('j_mul', multLvl);
-    localStorage.setItem('j_shakes', shakeCount);
-  }, [points, energy, batteryLvl, multLvl, shakeCount]);
+  }, [points, energy, batteryLvl, multLvl]);
 
   useEffect(() => {
     const timer = setInterval(() => setEnergy((prev) => Math.min(maxEnergy, prev + 1)), 4000);
@@ -93,7 +91,7 @@ export default function App() {
 
   const handleMotion = (e) => {
     const acc = e.accelerationIncludingGravity;
-    if (!acc || !motionEnabled || energy <= 0 || tab !== 'MINE' || isAdLoading) return;
+    if (!acc || !motionEnabled || energy < shakeVal || tab !== 'MINE' || isAdLoading) return;
 
     const totalAcc = Math.abs(acc.x ?? 0) + Math.abs(acc.y ?? 0) + Math.abs(acc.z ?? 0);
     if (totalAcc > 18) {
@@ -105,8 +103,7 @@ export default function App() {
         shakeTimeout.current = setTimeout(() => setIsShaking(false), 300);
 
         setPoints((prev) => prev + shakeVal);
-        setEnergy((prev) => Math.max(0, prev - 1));
-        setShakeCount((prev) => prev + 1);
+        setEnergy((prev) => Math.max(0, prev - shakeVal));
 
         const id = Date.now() + Math.random();
         setFloatingPoints((prev) => [...prev, { id, val: shakeVal }]);
@@ -249,20 +246,15 @@ export default function App() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto relative pb-32">
+      <div className="flex-1 relative overflow-hidden">
         {tab === 'MINE' && (
-          <div className="min-h-full flex flex-col items-center justify-center p-6">
-            <div className="text-center mb-10">
-              <p className="text-[10px] font-black opacity-30 tracking-[0.4em] uppercase mb-2">Total Yield</p>
-              <h1 className="text-5xl font-black italic">{points.toLocaleString()}</h1>
-            </div>
-
+          <div className="h-full flex flex-col items-center justify-center p-6 pb-2">
             <motion.div
               animate={isShaking ? { scale: 1.12 } : { scale: 1 }}
-              className={`w-80 h-80 rounded-full border-4 flex items-center justify-center transition-all duration-75
+              className={`w-64 h-64 rounded-full border-4 flex items-center justify-center transition-all duration-75
               ${isShaking ? 'border-[#CEFF00] bg-[#CEFF00]/5 shadow-[0_0_60px_rgba(206,255,0,0.15)]' : 'border-white/10 bg-white/5'}`}
             >
-              <span className="text-[140px] select-none">{energy === 0 ? '' : '⚡'}</span>
+              <span className="text-[110px] select-none">{energy < shakeVal ? '' : '⚡'}</span>
 
               <AnimatePresence>
                 {isShaking && [1, 2, 3].map((i) => (
@@ -281,13 +273,13 @@ export default function App() {
             {!motionEnabled && (
               <button
                 onClick={requestMotion}
-                className="w-full max-w-xs mt-10 bg-[#CEFF00] text-black font-black py-4 rounded-[24px]"
+                className="w-full max-w-xs mt-8 bg-[#CEFF00] text-black font-black py-4 rounded-[24px]"
               >
                 TAP TO ENABLE SHAKE
               </button>
             )}
 
-            {energy === 0 && (
+            {energy < shakeVal && (
               <button
                 onClick={showAd}
                 disabled={isAdLoading}
@@ -300,7 +292,7 @@ export default function App() {
         )}
 
         {tab === 'STORE' && (
-          <div className="p-8 space-y-4">
+          <div className="h-full overflow-y-auto p-8 space-y-4 pb-28">
             <h2 className="text-3xl font-black italic text-[#CEFF00]">STORE</h2>
             <button
               disabled={points < multCost || multLvl >= 25}
@@ -338,7 +330,7 @@ export default function App() {
         )}
 
         {tab === 'TOP' && (
-          <div className="p-8 space-y-4">
+          <div className="h-full overflow-y-auto p-8 space-y-4 pb-28">
             <div className="flex gap-2 mb-2 bg-white/5 p-1 rounded-2xl">
               {['RANK', 'LEAGUES'].map((panel) => (
                 <button
@@ -406,7 +398,7 @@ export default function App() {
         )}
 
         {tab === 'FRIENDS' && (
-          <div className="p-8 space-y-6">
+          <div className="h-full overflow-y-auto p-8 space-y-6 pb-28">
             <h2 className="text-3xl font-black italic">FRIENDS</h2>
             <div className="bg-white/5 p-6 rounded-[32px] border border-white/10 text-center">
               <p className="text-4xl font-black text-[#CEFF00] mb-1">{referralCount}</p>
@@ -435,10 +427,6 @@ export default function App() {
         <div className="flex justify-between text-[10px] font-black opacity-40 uppercase mb-2">
           <span>Kinetic Energy</span>
           <span>{energy}/{maxEnergy}</span>
-        </div>
-        <div className="flex justify-between text-[10px] font-black opacity-40 uppercase mb-2">
-          <span>Total Shakes</span>
-          <span>{shakeCount}</span>
         </div>
         <div className="h-2 bg-white/10 rounded-full overflow-hidden">
           <motion.div animate={{ width: `${(energy / maxEnergy) * 100}%` }} className="h-full bg-[#CEFF00]" />
