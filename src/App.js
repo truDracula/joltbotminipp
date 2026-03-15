@@ -6,6 +6,7 @@ export default function App() {
   const [energy, setEnergy] = useState(() => Number(localStorage.getItem('j_nrg')) || 100);
   const [batteryLvl, setBatteryLvl] = useState(() => Number(localStorage.getItem('j_bat')) || 1);
   const [multLvl, setMultLvl] = useState(() => Number(localStorage.getItem('j_mul')) || 1);
+  const [claimedTasks, setClaimedTasks] = useState(() => JSON.parse(localStorage.getItem('j_tasks') || '[]'));
   const [tab, setTab] = useState('MINE');
   const [floatingPoints, setFloatingPoints] = useState([]);
   const [motionEnabled, setMotionEnabled] = useState(() => localStorage.getItem('j_motion') === '1');
@@ -22,10 +23,43 @@ export default function App() {
   const shakeVal = multLvl;
   const multCost = Math.floor(2000 * Math.pow(2.5, multLvl - 1));
   const batCost = Math.floor(1000 * Math.pow(2.2, batteryLvl - 1));
+  const earnTasks = [
+    {
+      id: 'join_channel',
+      title: 'Join Jolt Channel',
+      reward: 5000,
+      actionLabel: 'OPEN',
+      run: () => tg.openTelegramLink?.('https://t.me/joltbotminipp'),
+    },
+    {
+      id: 'open_bot',
+      title: 'Open Jolt Bot',
+      reward: 2500,
+      actionLabel: 'OPEN',
+      run: () => tg.openTelegramLink?.('https://t.me/joltbotminippbot'),
+    },
+    {
+      id: 'daily_bonus',
+      title: 'Daily Check-In',
+      reward: 1000,
+      actionLabel: 'CLAIM',
+      run: () => {},
+    },
+  ];
 
   const formatCost = (value) => (
     value >= 1000000 ? `${(value / 1000000).toFixed(1)}M` : value.toLocaleString()
   );
+
+  const isTaskClaimed = (taskId) => claimedTasks.includes(taskId);
+
+  const handleTask = (task) => {
+    if (isTaskClaimed(task.id)) return;
+    task.run();
+    setPoints((prev) => prev + task.reward);
+    setClaimedTasks((prev) => [...prev, task.id]);
+    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  };
 
   const handleMotion = (e) => {
     const acc = e.accelerationIncludingGravity;
@@ -94,9 +128,10 @@ export default function App() {
     localStorage.setItem('j_bat', batteryLvl);
     localStorage.setItem('j_mul', multLvl);
     localStorage.setItem('j_motion', motionEnabled ? '1' : '0');
+    localStorage.setItem('j_tasks', JSON.stringify(claimedTasks));
     const timer = setInterval(() => setEnergy((e) => Math.min(maxEnergy, e + 1)), 4000);
     return () => clearInterval(timer);
-  }, [points, energy, maxEnergy, motionEnabled, batteryLvl, multLvl]);
+  }, [points, energy, maxEnergy, motionEnabled, batteryLvl, multLvl, claimedTasks]);
 
   const triggerAd = () => {
     setIsAdActive(true);
@@ -245,6 +280,35 @@ export default function App() {
               <div><p className="font-black">INSTANT REFILL</p><p className="text-[10px] opacity-40">Get 10,000 Energy</p></div>
               <div className="bg-yellow-500 px-4 py-2 rounded-xl font-black text-xs italic text-black">100 STAR</div>
             </div>
+          </div>
+        )}
+
+        {tab === 'EARN' && (
+          <div className="w-full h-full p-6 pt-10 space-y-4 overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-black italic text-[#CEFF00]">TASK CENTER</h2>
+              <span className="text-[10px] font-black uppercase opacity-40">
+                {claimedTasks.length}/{earnTasks.length} done
+              </span>
+            </div>
+
+            {earnTasks.map((task) => (
+              <div key={task.id} className="bg-white/5 p-6 rounded-[32px] border border-white/10 flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-black">{task.title}</p>
+                  <p className="text-[10px] text-[#CEFF00] font-black">+{formatCost(task.reward)} JOLT</p>
+                </div>
+                <button
+                  disabled={isTaskClaimed(task.id)}
+                  onClick={() => handleTask(task)}
+                  className={`px-4 py-2 rounded-xl text-[10px] font-black ${
+                    isTaskClaimed(task.id) ? 'bg-white/10 text-white/30' : 'bg-[#CEFF00] text-black'
+                  }`}
+                >
+                  {isTaskClaimed(task.id) ? 'DONE' : task.actionLabel}
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
