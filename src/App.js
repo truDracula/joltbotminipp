@@ -14,6 +14,7 @@ export default function App() {
   const [energy, setEnergy] = useState(() => Number(localStorage.getItem('j_nrg')) || 100);
   const [batteryLvl, setBatteryLvl] = useState(() => Number(localStorage.getItem('j_bat')) || 1);
   const [multLvl, setMultLvl] = useState(() => Number(localStorage.getItem('j_mul')) || 1);
+  const [shakeCount, setShakeCount] = useState(() => Number(localStorage.getItem('j_shakes')) || 0);
   const [tab, setTab] = useState('MINE');
   const [topTab, setTopTab] = useState('RANK');
   const [isShaking, setIsShaking] = useState(false);
@@ -55,7 +56,8 @@ export default function App() {
     localStorage.setItem('j_nrg', energy);
     localStorage.setItem('j_bat', batteryLvl);
     localStorage.setItem('j_mul', multLvl);
-  }, [points, energy, batteryLvl, multLvl]);
+    localStorage.setItem('j_shakes', shakeCount);
+  }, [points, energy, batteryLvl, multLvl, shakeCount]);
 
   useEffect(() => {
     const timer = setInterval(() => setEnergy((prev) => Math.min(maxEnergy, prev + 1)), 4000);
@@ -104,6 +106,7 @@ export default function App() {
 
         setPoints((prev) => prev + shakeVal);
         setEnergy((prev) => Math.max(0, prev - 1));
+        setShakeCount((prev) => prev + 1);
 
         const id = Date.now() + Math.random();
         setFloatingPoints((prev) => [...prev, { id, val: shakeVal }]);
@@ -432,6 +435,10 @@ export default function App() {
         <div className="flex justify-between text-[10px] font-black opacity-40 uppercase mb-2">
           <span>Kinetic Energy</span>
           <span>{energy}/{maxEnergy}</span>
+        </div>
+        <div className="flex justify-between text-[10px] font-black opacity-40 uppercase mb-2">
+          <span>Total Shakes</span>
+          <span>{shakeCount}</span>
         </div>
         <div className="h-2 bg-white/10 rounded-full overflow-hidden">
           <motion.div animate={{ width: `${(energy / maxEnergy) * 100}%` }} className="h-full bg-[#CEFF00]" />
