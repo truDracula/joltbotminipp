@@ -7,11 +7,14 @@ export default function App() {
   const [tab, setTab] = useState('MINE');
   const [isShaking, setIsShaking] = useState(false);
   const [referrals, setReferrals] = useState(() => JSON.parse(localStorage.getItem('j_refs')) || []);
+  const [isAdLoading, setIsAdLoading] = useState(false);
 
   const lastShake = useRef(0);
   const shakeTimeout = useRef(null);
   const tg = window.Telegram.WebApp;
   const userId = tg.initDataUnsafe?.user?.id || '000000';
+  const adsBlockId = process.env.REACT_APP_ADSGRAM_BLOCK_ID;
+  const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
 
   useEffect(() => {
     localStorage.setItem('j_pts', points);
@@ -47,6 +50,59 @@ export default function App() {
   const handleInvite = () => {
     const inviteLink = `https://t.me/share/url?url=https://t.me/jolt_bot/play?start=${userId}&text=Join me on Jolt and earn together!`;
     tg.openTelegramLink(inviteLink);
+  };
+
+  const verifyAdReward = async (rewardId) => {
+    if (!apiBaseUrl) {
+      tg.showAlert?.('Missing API URL for ad verification.');
+      return;
+    }
+
+    const response = await fetch(`${apiBaseUrl}/api/ads/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, rewardId }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Ad verification failed');
+    }
+
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.message || 'Invalid ad reward');
+    }
+
+    setEnergy(500);
+    tg.showAlert?.('Energy refilled!');
+  };
+
+  const showAd = async () => {
+    if (!adsBlockId) {
+      tg.showAlert?.('Missing Adsgram block id.');
+      return;
+    }
+    if (!window.Adsgram?.init) {
+      tg.showAlert?.('Adsgram SDK did not load.');
+      return;
+    }
+
+    try {
+      setIsAdLoading(true);
+      const adController = window.Adsgram.init({ blockId: adsBlockId });
+      const result = await adController.show();
+
+      if (result?.done) {
+        await verifyAdReward(result.rewardId);
+      } else {
+        tg.showAlert?.('Ad skipped. No reward granted.');
+      }
+    } catch (error) {
+      console.error('Adsgram error:', error);
+      tg.showAlert?.('Ad failed to load.');
+    } finally {
+      setIsAdLoading(false);
+    }
   };
 
   return (
@@ -101,6 +157,16 @@ export default function App() {
                 <motion.div animate={{ width: `${(energy / 500) * 100}%` }} className="h-full bg-[#CEFF00]" />
               </div>
             </div>
+
+            {energy === 0 && (
+              <button
+                onClick={showAd}
+                disabled={isAdLoading}
+                className="w-full max-w-xs mt-6 bg-[#CEFF00] text-black font-black py-4 rounded-[24px] disabled:opacity-50"
+              >
+                {isAdLoading ? 'LOADING AD...' : 'WATCH AD TO REFILL'}
+              </button>
+            )}
           </div>
         )}
 
