@@ -21,6 +21,7 @@ export default function App() {
   const [floatingPoints, setFloatingPoints] = useState([]);
   const [referralCount, setReferralCount] = useState(0);
   const [isAdLoading, setIsAdLoading] = useState(false);
+  const [hapticsEnabled, setHapticsEnabled] = useState(() => localStorage.getItem('j_haptics') !== '0');
 
   const lastShake = useRef(0);
   const shakeTimeout = useRef(null);
@@ -61,7 +62,8 @@ export default function App() {
     localStorage.setItem('j_nrg', energy);
     localStorage.setItem('j_bat', batteryLvl);
     localStorage.setItem('j_mul', multLvl);
-  }, [points, energy, batteryLvl, multLvl]);
+    localStorage.setItem('j_haptics', hapticsEnabled ? '1' : '0');
+  }, [points, energy, batteryLvl, multLvl, hapticsEnabled]);
 
   useEffect(() => {
     const timer = setInterval(() => setEnergy((prev) => Math.min(maxEnergy, prev + 1)), 4000);
@@ -117,7 +119,7 @@ export default function App() {
           setFloatingPoints((prev) => prev.filter((item) => item.id !== id));
         }, 800);
 
-        tg.HapticFeedback?.impactOccurred('medium');
+        if (hapticsEnabled) tg.HapticFeedback?.impactOccurred('medium');
       }
     }
   };
@@ -430,6 +432,50 @@ export default function App() {
             </button>
           </div>
         )}
+
+        {tab === 'PROFILE' && (
+          <div className="h-full overflow-y-auto p-8 space-y-4 pb-28">
+            <h2 className="text-3xl font-black italic text-[#CEFF00]">PROFILE</h2>
+
+            <div className="bg-white/5 p-6 rounded-[32px] border border-white/10 space-y-4">
+              <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                <span className="text-sm opacity-50 uppercase font-black">Username</span>
+                <span className="font-black">@{userName}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                <span className="text-sm opacity-50 uppercase font-black">UID</span>
+                <span className="font-black">{userId}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                <span className="text-sm opacity-50 uppercase font-black">Current Balance</span>
+                <span className="font-black text-[#CEFF00]">{formatCompact(points)} $JoltPoints</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                <span className="text-sm opacity-50 uppercase font-black">League</span>
+                <span className={`font-black ${currentLeague.color}`}>{currentLeague.id}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm opacity-50 uppercase font-black">Invited Friends</span>
+                <span className="font-black">{referralCount}</span>
+              </div>
+            </div>
+
+            <div className="bg-white/5 p-6 rounded-[32px] border border-white/10 flex justify-between items-center">
+              <div>
+                <p className="font-black">Haptics</p>
+                <p className="text-[10px] opacity-40">Switch vibration feedback on or off</p>
+              </div>
+              <button
+                onClick={() => setHapticsEnabled((prev) => !prev)}
+                className={`px-4 py-2 rounded-xl text-xs font-black ${
+                  hapticsEnabled ? 'bg-[#CEFF00] text-black' : 'bg-white/10 text-white'
+                }`}
+              >
+                {hapticsEnabled ? 'ON' : 'OFF'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="px-6 pb-3">
@@ -448,6 +494,7 @@ export default function App() {
           <NavButton id="STORE" icon="🛒" label="Store" />
           <NavButton id="TOP" icon="🏆" label="Top" />
           <NavButton id="FRIENDS" icon="👥" label="Friends" />
+          <NavButton id="PROFILE" icon="👤" label="Profile" />
         </nav>
       </div>
     </div>
