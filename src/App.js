@@ -7,9 +7,9 @@ export default function App() {
   const [batteryLvl, setBatteryLvl] = useState(() => Number(localStorage.getItem('j_bat')) || 1);
   const [multLvl, setMultLvl] = useState(() => Number(localStorage.getItem('j_mul')) || 1);
   const [tab, setTab] = useState('MINE');
+  const [motionEnabled, setMotionEnabled] = useState(() => localStorage.getItem('j_motion') === '1');
 
   const [isShaking, setIsShaking] = useState(false);
-  const [showPopup, setShowPopup] = useState(null);
   const [isAdActive, setIsAdActive] = useState(false);
   const [adTimer, setAdTimer] = useState(0);
 
@@ -20,39 +20,69 @@ export default function App() {
   const maxEnergy = 100 + (batteryLvl - 1) * 500;
   const shakeVal = multLvl;
 
-  useEffect(() => {
-    const handleMotion = (e) => {
-      const acc = e.accelerationIncludingGravity;
-      if (!acc || energy <= 0 || tab !== 'MINE' || isAdActive) return;
+  const handleMotion = (e) => {
+    const acc = e.accelerationIncludingGravity;
+    if (!acc || energy <= 0 || tab !== 'MINE' || isAdActive || !motionEnabled) return;
 
-      const totalAcc = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
+    const totalAcc = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
 
-      if (totalAcc > 25) {
-        const now = Date.now();
-        if (now - lastShake.current > 120) {
-          lastShake.current = now;
+    if (totalAcc > 18) {
+      const now = Date.now();
+      if (now - lastShake.current > 120) {
+        lastShake.current = now;
 
-          setIsShaking(true);
-          clearTimeout(shakeTimeout.current);
-          shakeTimeout.current = setTimeout(() => setIsShaking(false), 300);
+        setIsShaking(true);
+        clearTimeout(shakeTimeout.current);
+        shakeTimeout.current = setTimeout(() => setIsShaking(false), 300);
 
-          setPoints((p) => p + shakeVal);
-          setEnergy((en) => Math.max(0, en - 1));
-          if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-        }
+        setPoints((p) => p + shakeVal);
+        setEnergy((en) => Math.max(0, en - 1));
+        if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
       }
-    };
+    }
+  };
 
+  const startMotion = async () => {
+    const motionEvent = window.DeviceMotionEvent;
+
+    if (!motionEvent) {
+      if (tg.showAlert) tg.showAlert('Motion sensors are not available on this device.');
+      return;
+    }
+
+    if (typeof motionEvent.requestPermission === 'function') {
+      try {
+        const permission = await motionEvent.requestPermission();
+        if (permission !== 'granted') {
+          if (tg.showAlert) tg.showAlert('Motion permission was denied.');
+          return;
+        }
+      } catch (error) {
+        if (tg.showAlert) tg.showAlert('Motion permission request failed.');
+        return;
+      }
+    }
+
+    localStorage.setItem('j_motion', '1');
+    setMotionEnabled(true);
+  };
+
+  useEffect(() => {
+    if (!motionEnabled) return undefined;
     window.addEventListener('devicemotion', handleMotion);
-    return () => window.removeEventListener('devicemotion', handleMotion);
-  }, [energy, tab, isAdActive, shakeVal]);
+    return () => {
+      window.removeEventListener('devicemotion', handleMotion);
+      clearTimeout(shakeTimeout.current);
+    };
+  }, [energy, tab, isAdActive, shakeVal, motionEnabled]);
 
   useEffect(() => {
     localStorage.setItem('j_pts', points);
     localStorage.setItem('j_nrg', energy);
+    localStorage.setItem('j_motion', motionEnabled ? '1' : '0');
     const timer = setInterval(() => setEnergy((e) => Math.min(maxEnergy, e + 1)), 4000);
     return () => clearInterval(timer);
-  }, [points, energy, maxEnergy]);
+  }, [points, energy, maxEnergy, motionEnabled]);
 
   const triggerAd = () => {
     setIsAdActive(true);
@@ -118,6 +148,12 @@ export default function App() {
             </div>
 
             <div className="absolute bottom-10 w-full px-10 space-y-4">
+              {!motionEnabled && (
+                <button onClick={startMotion} className="w-full bg-[#CEFF00] text-black font-black py-3 rounded-2xl animate-pulse text-xs">
+                  TAP TO ENABLE SHAKE
+                </button>
+              )}
+
               {energy === 0 && (
                 <button onClick={triggerAd} className="w-full bg-red-600 text-white font-black py-3 rounded-2xl animate-pulse text-xs">
                   OUT OF ENERGY - WATCH AD TO REFILL
