@@ -49,6 +49,12 @@ export default function App() {
   const userRank = leaderboard.findIndex((entry) => entry.isUser) + 1;
 
   const formatCost = (value) => (value >= 1000000 ? `${(value / 1000000).toFixed(1)}M` : value.toLocaleString());
+  const formatCompact = (value) => {
+    if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
+    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+    return value.toLocaleString();
+  };
 
   useEffect(() => {
     localStorage.setItem('j_pts', points);
@@ -242,7 +248,10 @@ export default function App() {
         )}
         <div className="text-right">
           <p className="text-[10px] font-black opacity-30 uppercase tracking-tighter">Balance</p>
-          <p className="text-xl font-black italic">{points.toLocaleString()} $JOLT</p>
+          <div className="flex flex-col items-end">
+            <p className="text-2xl font-black italic text-[#CEFF00]">{formatCompact(points)}</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-cyan-300">$JoltPoints</p>
+          </div>
         </div>
       </div>
 
