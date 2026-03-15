@@ -9,46 +9,71 @@ export default function App() {
   const [isHyper, setIsHyper] = useState(false);
   const [multiplier, setMultiplier] = useState(1);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [motionEnabled, setMotionEnabled] = useState(false);
 
   const lastShake = useRef(0);
 
+  const triggerHyper = () => {
+    setMultiplier([5, 10, 15][Math.floor(Math.random() * 3)]);
+    setIsHyper(true);
+    setTimeLeft(10);
+  };
+
+  const processShake = () => {
+    if (isHyper) {
+      setPoints((p) => p + multiplier);
+    } else {
+      setPoints((p) => p + 1);
+      setEnergy((e) => Math.max(0, e - 0.5));
+      setKinetic((k) => {
+        if (k + 5 >= 100) {
+          triggerHyper();
+          return 100;
+        }
+        return k + 5;
+      });
+    }
+    if (navigator.vibrate) navigator.vibrate(20);
+  };
+
+  const handleMotion = (event) => {
+    if (tab !== 'MINE' || energy < 1) return;
+
+    const { x, y, z } = event.accelerationIncludingGravity || { x: 0, y: 0, z: 0 };
+    const totalAcc = Math.sqrt(x * x + y * y + z * z);
+
+    if (totalAcc > 18 && Date.now() - lastShake.current > 100) {
+      lastShake.current = Date.now();
+      processShake();
+    }
+  };
+
+  const enableMotion = async () => {
+    const motionEvent = window.DeviceMotionEvent;
+    if (!motionEvent) {
+      alert('Motion sensors are not available on this device.');
+      return;
+    }
+
+    if (typeof motionEvent.requestPermission === 'function') {
+      try {
+        const state = await motionEvent.requestPermission();
+        if (state === 'granted') {
+          window.addEventListener('devicemotion', handleMotion);
+          setMotionEnabled(true);
+          alert('Motion Synced! Start Shaking.');
+        }
+      } catch (e) {
+        alert('Permission denied. Check your browser settings.');
+      }
+    } else {
+      window.addEventListener('devicemotion', handleMotion);
+      setMotionEnabled(true);
+      alert('Motion Active.');
+    }
+  };
+
   useEffect(() => {
-    const handleMotion = (event) => {
-      if (tab !== 'MINE' || energy < 1) return;
-
-      const { x, y, z } = event.accelerationIncludingGravity || { x: 0, y: 0, z: 0 };
-      const totalAcc = Math.sqrt(x * x + y * y + z * z);
-
-      if (totalAcc > 18 && Date.now() - lastShake.current > 100) {
-        lastShake.current = Date.now();
-        processShake();
-      }
-    };
-
-    const processShake = () => {
-      if (isHyper) {
-        setPoints((p) => p + multiplier);
-      } else {
-        setPoints((p) => p + 1);
-        setEnergy((e) => Math.max(0, e - 0.5));
-        setKinetic((k) => {
-          if (k + 5 >= 100) {
-            triggerHyper();
-            return 100;
-          }
-          return k + 5;
-        });
-      }
-      if (navigator.vibrate) navigator.vibrate(20);
-    };
-
-    const triggerHyper = () => {
-      setMultiplier([5, 10, 15][Math.floor(Math.random() * 3)]);
-      setIsHyper(true);
-      setTimeLeft(10);
-    };
-
-    window.addEventListener('devicemotion', handleMotion);
     return () => window.removeEventListener('devicemotion', handleMotion);
   }, [tab, energy, isHyper, multiplier]);
 
@@ -98,7 +123,18 @@ export default function App() {
                 </div>
               )}
             </div>
-            <p className="mt-12 text-[10px] text-white/20 uppercase font-black tracking-[0.5em] animate-pulse">Shake Device to Sync</p>
+            {!motionEnabled && kinetic === 0 && (
+              <button
+                onClick={enableMotion}
+                className="mt-10 px-8 py-3 bg-[#CEFF00] text-black font-black rounded-2xl animate-bounce shadow-lg"
+              >
+                ACTIVATE SENSORS
+              </button>
+            )}
+
+            {motionEnabled && (
+              <p className="mt-12 text-[10px] text-white/20 uppercase font-black tracking-[0.5em] animate-pulse">Shake Device to Sync</p>
+            )}
 
             <div className="w-full mt-12 space-y-2">
               <div className="flex justify-between text-[9px] font-black uppercase">
