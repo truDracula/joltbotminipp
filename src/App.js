@@ -8,75 +8,111 @@ const NAV_ITEMS = [
   { id: 'STORE', icon: '🛒', label: 'Store' },
 ];
 
+const EarnPanel = () => (
+  <div className="p-6 space-y-4">
+    <h2 className="text-2xl font-black italic">TASKS</h2>
+    <div className="bg-white/5 p-4 rounded-2xl border border-white/10 flex justify-between items-center">
+      <div>
+        <p className="font-bold">Join Jolt Channel</p>
+        <p className="text-[#CEFF00] text-xs">+5,000 $JOLT</p>
+      </div>
+      <button className="bg-white/10 px-4 py-2 rounded-xl text-xs font-bold">START</button>
+    </div>
+  </div>
+);
+
+const FriendsPanel = () => {
+  const shareLink = () => {
+    const url = 'https://t.me/share/url?url=https://t.me/joltbotminippbot/app?startapp=123&text=Play Jolt and Earn!';
+    if (window.Telegram?.WebApp?.openTelegramLink) {
+      window.Telegram.WebApp.openTelegramLink(url);
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <div className="p-6 text-center">
+      <h2 className="text-3xl font-black italic mb-4">FRIENDS</h2>
+      <div className="bg-[#CEFF00]/10 p-6 rounded-3xl border border-[#CEFF00]/20 mb-6">
+        <p className="text-sm opacity-70">You get 10% of whatever your friends earn!</p>
+      </div>
+      <button onClick={shareLink} className="w-full bg-[#CEFF00] text-black font-black py-4 rounded-2xl">
+        INVITE A FRIEND
+      </button>
+    </div>
+  );
+};
+
 export default function App() {
   const [tab, setTab] = useState('MINE');
   const [points, setPoints] = useState(1250);
   const [energy, setEnergy] = useState(100);
   const [debug, setDebug] = useState('No motion detected');
+  const [motionActive, setMotionActive] = useState(false);
 
   const lastShake = useRef(0);
+  const tabRef = useRef(tab);
+  const energyRef = useRef(energy);
 
   useEffect(() => {
-    const tg = window.Telegram?.WebApp;
+    tabRef.current = tab;
+  }, [tab]);
 
-    const handleMotion = (event) => {
-      if (tab !== 'MINE' || energy < 1) return;
+  useEffect(() => {
+    energyRef.current = energy;
+  }, [energy]);
 
-      const acc = event.accelerationIncludingGravity;
-      if (!acc) return;
+  const handleMotion = (event) => {
+    if (tabRef.current !== 'MINE' || energyRef.current < 1) return;
 
-      setDebug(`X: ${acc.x?.toFixed(2) ?? '0.00'} Y: ${acc.y?.toFixed(2) ?? '0.00'}`);
+    const acc = event.accelerationIncludingGravity;
+    if (!acc) return;
 
-      const threshold = 12;
-      if (Math.abs(acc.x ?? 0) > threshold || Math.abs(acc.y ?? 0) > threshold || Math.abs(acc.z ?? 0) > threshold) {
-        const now = Date.now();
-        if (now - lastShake.current > 200) {
-          lastShake.current = now;
+    setDebug(`X: ${acc.x?.toFixed(2) ?? '0.00'} Y: ${acc.y?.toFixed(2) ?? '0.00'}`);
 
-          if (tg?.HapticFeedback) {
-            tg.HapticFeedback.impactOccurred('medium');
-          } else if (navigator.vibrate) {
-            navigator.vibrate(20);
-          }
+    const threshold = 12;
+    if (Math.abs(acc.x ?? 0) > threshold || Math.abs(acc.y ?? 0) > threshold || Math.abs(acc.z ?? 0) > threshold) {
+      const now = Date.now();
+      if (now - lastShake.current > 200) {
+        lastShake.current = now;
 
-          setPoints((p) => p + 1);
-          setEnergy((e) => Math.max(0, e - 0.5));
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+          window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+        } else if (navigator.vibrate) {
+          navigator.vibrate(20);
         }
-      }
-    };
 
-    const startSensors = async () => {
-      const motionEvent = window.DeviceMotionEvent;
-      if (!motionEvent) {
-        setDebug('Motion API unavailable');
-        return;
+        setPoints((p) => p + 1);
+        setEnergy((e) => Math.max(0, e - 0.5));
       }
+    }
+  };
 
+  const startMotion = async () => {
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
       try {
-        if (typeof motionEvent.requestPermission === 'function') {
-          const response = await motionEvent.requestPermission();
-          if (response === 'granted') {
-            window.addEventListener('devicemotion', handleMotion);
-            setDebug('Motion permission granted');
-          } else {
-            setDebug('Motion permission denied');
-          }
-        } else {
+        const permission = await DeviceMotionEvent.requestPermission();
+        if (permission === 'granted') {
           window.addEventListener('devicemotion', handleMotion);
-          setDebug('Motion listener active');
+          setMotionActive(true);
+          setDebug('Motion active');
         }
-      } catch (error) {
-        setDebug('Motion start failed');
+      } catch (err) {
+        setDebug('Permission Denied');
       }
-    };
+    } else {
+      window.addEventListener('devicemotion', handleMotion);
+      setMotionActive(true);
+      setDebug('Motion active');
+    }
+  };
 
-    window.addEventListener('touchstart', startSensors, { once: true });
-
+  useEffect(() => {
     return () => {
-      window.removeEventListener('touchstart', startSensors);
       window.removeEventListener('devicemotion', handleMotion);
     };
-  }, [tab, energy]);
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col overflow-hidden text-white font-sans">
@@ -94,9 +130,20 @@ export default function App() {
             <div className="w-64 h-64 bg-white/5 rounded-full border-4 border-[#CEFF00] flex items-center justify-center shadow-[0_0_45px_rgba(206,255,0,0.18)]">
               <span className="text-8xl">⚡</span>
             </div>
-            <p className="mt-10 text-center text-xs opacity-40 uppercase tracking-[0.3em]">
-              Shake your phone to sync kinetic energy
-            </p>
+
+            {!motionActive ? (
+              <button
+                onClick={startMotion}
+                className="mt-10 px-8 py-4 bg-[#CEFF00] text-black font-black rounded-2xl animate-bounce"
+              >
+                TAP TO SYNC SENSORS
+              </button>
+            ) : (
+              <p className="mt-10 text-xs opacity-40 uppercase tracking-[0.3em] animate-pulse">
+                SENSORS ACTIVE: SHAKE NOW
+              </p>
+            )}
+
             <div className="w-full max-w-sm mt-10">
               <div className="flex justify-between text-[10px] font-bold uppercase text-white/50 mb-2">
                 <span>Energy</span>
@@ -109,8 +156,8 @@ export default function App() {
           </div>
         )}
 
-        {tab === 'EARN' && <div className="p-8"><h2 className="text-2xl font-black italic">Earn Panel</h2><p className="mt-4 text-white/50">Tasks coming soon...</p></div>}
-        {tab === 'FRIENDS' && <div className="p-8 text-center"><h2 className="text-2xl font-black italic">Invite Friends</h2><button className="bg-[#CEFF00] text-black w-full p-4 rounded-xl mt-4 font-bold">SEND INVITE</button></div>}
+        {tab === 'EARN' && <EarnPanel />}
+        {tab === 'FRIENDS' && <FriendsPanel />}
         {tab === 'TOP' && <div className="p-8"><h2 className="text-2xl font-black italic">Leaderboard</h2></div>}
         {tab === 'STORE' && <div className="p-8"><h2 className="text-2xl font-black italic">Upgrade Store</h2></div>}
       </div>
