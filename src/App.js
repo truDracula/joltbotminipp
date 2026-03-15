@@ -8,6 +8,7 @@ export default function App() {
   const [multLvl, setMultLvl] = useState(() => Number(localStorage.getItem('j_mul')) || 1);
   const [claimedTasks, setClaimedTasks] = useState(() => JSON.parse(localStorage.getItem('j_tasks') || '[]'));
   const [tab, setTab] = useState('MINE');
+  const [topTab, setTopTab] = useState('RANK');
   const [floatingPoints, setFloatingPoints] = useState([]);
   const [motionEnabled, setMotionEnabled] = useState(() => localStorage.getItem('j_motion') === '1');
 
@@ -18,11 +19,19 @@ export default function App() {
   const lastShake = useRef(0);
   const shakeTimeout = useRef(null);
   const tg = window.Telegram.WebApp;
+  const userName = tg.initDataUnsafe?.user?.username || 'Pilot';
 
   const maxEnergy = 100 + (batteryLvl - 1) * 500;
   const shakeVal = multLvl;
   const multCost = Math.floor(2000 * Math.pow(2.5, multLvl - 1));
   const batCost = Math.floor(1000 * Math.pow(2.2, batteryLvl - 1));
+  const leagues = [
+    { id: 'BRONZE', min: 0, max: 50000, color: 'text-orange-400' },
+    { id: 'SILVER', min: 50000, max: 250000, color: 'text-slate-300' },
+    { id: 'GOLD', min: 250000, max: 1000000, color: 'text-yellow-400' },
+    { id: 'PLATINUM', min: 1000000, max: 5000000, color: 'text-cyan-300' },
+    { id: 'DIAMOND', min: 5000000, max: Infinity, color: 'text-fuchsia-300' },
+  ];
   const earnTasks = [
     {
       id: 'join_channel',
@@ -50,6 +59,20 @@ export default function App() {
   const formatCost = (value) => (
     value >= 1000000 ? `${(value / 1000000).toFixed(1)}M` : value.toLocaleString()
   );
+  const currentLeagueIndex = leagues.findIndex((league) => points >= league.min && points < league.max);
+  const currentLeague = leagues[currentLeagueIndex === -1 ? leagues.length - 1 : currentLeagueIndex];
+  const progressMax = Number.isFinite(currentLeague.max) ? currentLeague.max : currentLeague.min + 1000000;
+  const leagueProgress = Math.max(0, Math.min(100, ((points - currentLeague.min) / Math.max(1, progressMax - currentLeague.min)) * 100));
+  const leaderboard = [
+    { name: 'voltking', score: 2850000 },
+    { name: 'shakequeen', score: 1450000 },
+    { name: 'coilgod', score: 820000 },
+    { name: userName, score: points, isUser: true },
+    { name: 'pulsepilot', score: 310000 },
+    { name: 'gridrunner', score: 125000 },
+    { name: 'sparkzero', score: 42000 },
+  ].sort((a, b) => b.score - a.score);
+  const userRank = leaderboard.findIndex((entry) => entry.isUser) + 1;
 
   const isTaskClaimed = (taskId) => claimedTasks.includes(taskId);
 
@@ -182,6 +205,10 @@ export default function App() {
         <h1 className="text-6xl font-black italic tracking-tighter text-white">
           {points.toLocaleString()}
         </h1>
+        <div className="mt-3 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.3em]">
+          <span className={currentLeague.color}>{currentLeague.id}</span>
+          <span className="opacity-30">Rank #{userRank}</span>
+        </div>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center relative">
@@ -311,13 +338,98 @@ export default function App() {
             ))}
           </div>
         )}
+
+        {tab === 'TOP' && (
+          <div className="w-full h-full p-6 pt-10 space-y-4 overflow-y-auto">
+            <div className="flex gap-2 mb-4 bg-white/5 p-1 rounded-2xl">
+              {['RANK', 'LEAGUES'].map((panel) => (
+                <button
+                  key={panel}
+                  onClick={() => setTopTab(panel)}
+                  className={`flex-1 py-3 rounded-xl text-[10px] font-black transition-all ${
+                    topTab === panel ? 'bg-[#CEFF00] text-black shadow-lg' : 'text-white/40'
+                  }`}
+                >
+                  {panel}
+                </button>
+              ))}
+            </div>
+
+            {topTab === 'RANK' && (
+              <>
+                <div className="bg-[#CEFF00]/10 border border-[#CEFF00]/20 rounded-[28px] p-5">
+                  <p className="text-[10px] font-black uppercase opacity-50">Your Position</p>
+                  <div className="mt-2 flex items-end justify-between">
+                    <div>
+                      <p className="text-3xl font-black italic text-[#CEFF00]">#{userRank}</p>
+                      <p className="text-sm opacity-60">@{userName}</p>
+                    </div>
+                    <p className="text-lg font-black">{points.toLocaleString()}</p>
+                  </div>
+                </div>
+
+                {leaderboard.map((entry, index) => (
+                  <div
+                    key={`${entry.name}-${index}`}
+                    className={`bg-white/5 p-5 rounded-[28px] border flex items-center justify-between ${
+                      entry.isUser ? 'border-[#CEFF00]/30' : 'border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-black opacity-40 w-6">#{index + 1}</span>
+                      <div>
+                        <p className={`font-black ${entry.isUser ? 'text-[#CEFF00]' : 'text-white'}`}>
+                          {entry.name}
+                        </p>
+                        <p className="text-[10px] uppercase opacity-40">
+                          {leagues.find((league) => entry.score >= league.min && entry.score < league.max)?.id || 'DIAMOND'}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="font-black">{entry.score.toLocaleString()}</p>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {topTab === 'LEAGUES' && (
+              <>
+                <div className="bg-white/5 border border-white/10 rounded-[28px] p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] uppercase font-black opacity-40">Current League</p>
+                      <p className={`text-2xl font-black italic ${currentLeague.color}`}>{currentLeague.id}</p>
+                    </div>
+                    <p className="text-[10px] uppercase font-black opacity-40">
+                      {Number.isFinite(currentLeague.max) ? `${points.toLocaleString()} / ${currentLeague.max.toLocaleString()}` : 'Top Tier'}
+                    </p>
+                  </div>
+                  <div className="mt-4 h-2 bg-white/10 rounded-full overflow-hidden">
+                    <motion.div animate={{ width: `${leagueProgress}%` }} className="h-full bg-[#CEFF00]" />
+                  </div>
+                </div>
+
+                {leagues.map((league) => (
+                  <div key={league.id} className={`bg-white/5 p-5 rounded-[28px] border ${league.id === currentLeague.id ? 'border-[#CEFF00]/30' : 'border-white/10'}`}>
+                    <div className="flex items-center justify-between">
+                      <p className={`font-black ${league.color}`}>{league.id}</p>
+                      <p className="text-[10px] uppercase opacity-40">
+                        {league.min.toLocaleString()} - {Number.isFinite(league.max) ? league.max.toLocaleString() : 'Infinity'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="p-4 pb-8">
         <nav className="h-20 bg-[#111] rounded-[35px] border border-white/10 flex items-center justify-around px-2">
-          {['MINE', 'STORE', 'EARN', 'FRIENDS'].map((id) => (
+          {['MINE', 'STORE', 'EARN', 'TOP', 'FRIENDS'].map((id) => (
             <button key={id} onClick={() => setTab(id)} className={`flex-1 flex flex-col items-center gap-1 transition-all ${tab === id ? 'text-[#CEFF00]' : 'text-white/20 opacity-50'}`}>
-              <span className="text-xl">{id === 'MINE' ? '⚡' : id === 'STORE' ? '🛒' : id === 'EARN' ? '💸' : '👥'}</span>
+              <span className="text-xl">{id === 'MINE' ? '⚡' : id === 'STORE' ? '🛒' : id === 'EARN' ? '💸' : id === 'TOP' ? '🏆' : '👥'}</span>
               <span className="text-[8px] font-black uppercase tracking-tighter">{id}</span>
             </button>
           ))}
