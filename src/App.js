@@ -172,6 +172,18 @@ export default function App() {
     }
   }, [isAdActive, adTimer, maxEnergy]);
 
+  const NavButton = ({ id, icon, label }) => (
+    <button
+      onClick={() => setTab(id)}
+      className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all ${
+        tab === id ? 'text-[#CEFF00] scale-110' : 'text-white/20'
+      }`}
+    >
+      <span className="text-xl">{icon}</span>
+      <span className="text-[8px] font-black uppercase tracking-tighter">{label}</span>
+    </button>
+  );
+
   return (
     <div className="fixed inset-0 bg-black text-white font-sans overflow-hidden flex flex-col">
       <AnimatePresence>
@@ -200,20 +212,34 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <div className="pt-12 text-center">
-        <p className="text-[10px] font-black opacity-30 tracking-[0.4em] uppercase mb-1">Total Yield</p>
-        <h1 className="text-6xl font-black italic tracking-tighter text-white">
-          {points.toLocaleString()}
-        </h1>
-        <div className="mt-3 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.3em]">
-          <span className={currentLeague.color}>{currentLeague.id}</span>
-          <span className="opacity-30">Rank #{userRank}</span>
+      <div className="p-4 flex justify-between items-center bg-[#0a0a0a] border-b border-white/5 z-50">
+        {tab !== 'MINE' ? (
+          <button
+            onClick={() => setTab('MINE')}
+            className="bg-white/10 px-4 py-2 rounded-xl text-[10px] font-black flex items-center gap-2"
+          >
+            ← BACK
+          </button>
+        ) : (
+          <div className="w-14" />
+        )}
+        <div className="text-right">
+          <p className="text-[8px] font-black opacity-30 uppercase tracking-widest">Balance</p>
+          <p className="text-xl font-black italic text-[#CEFF00]">{points.toLocaleString()}</p>
+          <div className="mt-1 flex items-center justify-end gap-2 text-[8px] font-black uppercase tracking-[0.2em]">
+            <span className={currentLeague.color}>{currentLeague.id}</span>
+            <span className="opacity-30">#{userRank}</span>
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center relative">
+      <div className="flex-1 overflow-y-auto relative pb-24 px-6">
         {tab === 'MINE' && (
-          <>
+          <div className="min-h-full flex flex-col items-center justify-center py-10">
+            <div className="text-center mb-10">
+              <h1 className="text-5xl font-black italic">{points.toLocaleString()}</h1>
+            </div>
+
             <div className="relative">
               <motion.div
                 animate={isShaking ? { scale: 1.1, rotate: [0, 2, -2, 0] } : { scale: 1 }}
@@ -237,7 +263,7 @@ export default function App() {
               </motion.div>
             </div>
 
-            <div className="absolute bottom-10 w-full px-10 space-y-4">
+            <div className="w-full mt-16 space-y-4">
               {!motionEnabled && (
                 <button onClick={startMotion} className="w-full bg-[#CEFF00] text-black font-black py-3 rounded-2xl animate-pulse text-xs">
                   TAP TO ENABLE SHAKE
@@ -260,11 +286,11 @@ export default function App() {
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
 
         {tab === 'STORE' && (
-          <div className="w-full h-full p-6 pt-10 space-y-4 overflow-y-auto">
+          <div className="pt-10 space-y-4">
             <h2 className="text-2xl font-black italic text-[#CEFF00]">PREMIUM SHOP</h2>
             <button
               disabled={points < multCost || multLvl >= 25}
@@ -311,7 +337,7 @@ export default function App() {
         )}
 
         {tab === 'EARN' && (
-          <div className="w-full h-full p-6 pt-10 space-y-4 overflow-y-auto">
+          <div className="pt-10 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-black italic text-[#CEFF00]">TASK CENTER</h2>
               <span className="text-[10px] font-black uppercase opacity-40">
@@ -340,7 +366,7 @@ export default function App() {
         )}
 
         {tab === 'TOP' && (
-          <div className="w-full h-full p-6 pt-10 space-y-4 overflow-y-auto">
+          <div className="pt-10 space-y-4">
             <div className="flex gap-2 mb-4 bg-white/5 p-1 rounded-2xl">
               {['RANK', 'LEAGUES'].map((panel) => (
                 <button
@@ -423,16 +449,31 @@ export default function App() {
             )}
           </div>
         )}
+
+        {tab === 'FRIENDS' && (
+          <div className="pt-10 space-y-4">
+            <h2 className="text-2xl font-black italic text-[#CEFF00]">FRIENDS</h2>
+            <div className="bg-white/5 p-6 rounded-[32px] border border-white/10">
+              <p className="font-black">Invite Friends</p>
+              <p className="text-[10px] opacity-40 mt-2">Share your bot link and grow your rank together.</p>
+            </div>
+            <button
+              onClick={() => tg.openTelegramLink?.('https://t.me/share/url?url=https://t.me/joltbotminippbot&text=Join%20Jolt%20with%20me')}
+              className="w-full bg-[#CEFF00] text-black font-black py-4 rounded-2xl"
+            >
+              SEND INVITE
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="p-4 pb-8">
-        <nav className="h-20 bg-[#111] rounded-[35px] border border-white/10 flex items-center justify-around px-2">
-          {['MINE', 'STORE', 'EARN', 'TOP', 'FRIENDS'].map((id) => (
-            <button key={id} onClick={() => setTab(id)} className={`flex-1 flex flex-col items-center gap-1 transition-all ${tab === id ? 'text-[#CEFF00]' : 'text-white/20 opacity-50'}`}>
-              <span className="text-xl">{id === 'MINE' ? '⚡' : id === 'STORE' ? '🛒' : id === 'EARN' ? '💸' : id === 'TOP' ? '🏆' : '👥'}</span>
-              <span className="text-[8px] font-black uppercase tracking-tighter">{id}</span>
-            </button>
-          ))}
+      <div className="bg-black/80 backdrop-blur-md p-4 pb-8 border-t border-white/5 z-[100]">
+        <nav className="h-20 bg-[#151515] rounded-[32px] border border-white/10 flex items-center justify-around px-2">
+          <NavButton id="MINE" icon="⚡" label="Mine" />
+          <NavButton id="STORE" icon="🛒" label="Store" />
+          <NavButton id="EARN" icon="💸" label="Earn" />
+          <NavButton id="TOP" icon="🏆" label="Top" />
+          <NavButton id="FRIENDS" icon="👥" label="Friends" />
         </nav>
       </div>
     </div>
