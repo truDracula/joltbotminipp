@@ -1,42 +1,59 @@
 const express = require('express');
-const axios = require('axios');
+const mongoose = require('mongoose');
 const cors = require('cors');
+const axios = require('axios');
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Replace this with a real database.
-const users = new Map();
-const rewardedAds = new Set();
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/jolt_game');
 
-function getUser(tgId) {
-  if (!users.has(tgId)) {
-    users.set(tgId, {
-      tgId,
-      referredBy: null,
-      referralCount: 0,
-      points: 0,
-      energy: 100,
-    });
+const UserSchema = new mongoose.Schema({
+  tgId: { type: String, unique: true },
+  username: String,
+  points: { type: Number, default: 0 },
+  energy: { type: Number, default: 100 },
+  referralCount: { type: Number, default: 0 },
+  referredBy: String,
+});
+
+const User = mongoose.model('User', UserSchema);
+
+app.post('/api/user/sync', async (req, res) => {
+  const { tgId, username, startParam } = req.body;
+
+  if (!tgId) {
+    return res.status(400).json({ success: false, message: 'Missing tgId' });
   }
-  return users.get(tgId);
-}
+
+  let user = await User.findOne({ tgId });
+
+  if (!user) {
+    user = new User({
+      tgId,
+      username,
+      referredBy: startParam || null,
+    });
+    await user.save();
+
+    if (startParam) {
+      await User.findOneAndUpdate(
+        { tgId: startParam },
+        { $inc: { points: 5000, referralCount: 1 } },
+      );
+    }
+  }
+
+  return res.json(user);
+});
 
 app.post('/api/ads/verify', async (req, res) => {
   const { userId, rewardId } = req.body;
 
-  if (!userId || !rewardId) {
-    return res.status(400).json({ success: false, message: 'Missing userId or rewardId' });
-  }
-
-  if (rewardedAds.has(rewardId)) {
-    return res.status(409).json({ success: false, message: 'Reward already claimed' });
-  }
-
   try {
-    const verifyResponse = await axios.get('https://api.adsgram.ai/verify', {
+    const verify = await axios.get('https://api.adsgram.ai/verify', {
       params: {
         blockId: process.env.ADSGRAM_BLOCK_ID,
         userId,
@@ -45,49 +62,17 @@ app.post('/api/ads/verify', async (req, res) => {
       },
     });
 
-    if (!verifyResponse.data?.valid) {
+    if (!verify.data?.valid) {
       return res.status(403).json({ success: false, message: 'Invalid ad claim' });
     }
 
-    rewardedAds.add(rewardId);
-    const user = getUser(String(userId));
-    user.energy = 500;
-
+    await User.findOneAndUpdate({ tgId: String(userId) }, { $set: { energy: 500 } });
     return res.json({ success: true });
   } catch (error) {
-    console.error('Adsgram verify failed', error.response?.data || error.message);
+    console.error('Ads verify error', error.response?.data || error.message);
     return res.status(500).json({ success: false, message: 'Verification failed' });
   }
 });
 
-app.post('/api/referrals/register', (req, res) => {
-  const { tgId, referredBy } = req.body;
-
-  if (!tgId) {
-    return res.status(400).json({ success: false, message: 'Missing tgId' });
-  }
-
-  const user = getUser(String(tgId));
-
-  if (referredBy && referredBy !== String(tgId) && !user.referredBy) {
-    user.referredBy = String(referredBy);
-    const inviter = getUser(String(referredBy));
-    inviter.referralCount += 1;
-    inviter.points += 5000;
-  }
-
-  return res.json({
-    success: true,
-    user,
-  });
-});
-
-app.get('/api/users/:tgId', (req, res) => {
-  const user = getUser(String(req.params.tgId));
-  return res.json(user);
-});
-
 const port = process.env.PORT || 3001;
-app.listen(port, () => {
-  console.log(`Ads/referral server listening on ${port}`);
-});
+app.listen(port, () => console.log(`Jolt Backend running on port ${port}`));
